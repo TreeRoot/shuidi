@@ -9,7 +9,7 @@ from settings import settings
 class base_handler(RequestHandler):
     def prepare(self):
         if settings.request_info:
-            print("{}  {}".format(self.request.uri, self.__class__))
+            print("{}  {}:{}".format(self.request.uri, self.request.method, self.request.remote_ip))
 
     def json(self, obj, content_type="text/javasctipt; charset=utf-8", cls=None):
         self.set_header("Content-Type", content_type)

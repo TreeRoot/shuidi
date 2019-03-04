@@ -8,7 +8,6 @@ from settings import settings
 
 class main_handler(base_handler):
     def get(self):
-        import ipdb; ipdb.set_trace()
         self.write("test")
 
 def main():
@@ -20,6 +19,9 @@ def main():
             }
 
     urls.add(('/', main_handler))
+    for item in urls.urls:
+        print("{} {}".format(item[0], item[1]))
+    print('\nserver at 8888 port\n')
 
     app = tornado.web.Application(urls.urls, **_settings)
     app.listen(8888)
@@ -27,5 +29,4 @@ def main():
 
 
 if __name__ == "__main__":
-    print('server at 8888 port\n')
     main()
