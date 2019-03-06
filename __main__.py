@@ -5,11 +5,13 @@ import tornado.ioloop
 from framework.base.urls import url_config as urls
 from framework.base.request_handler import base_handler
 from settings import settings
+from env import find_modules
 
 class main_handler(base_handler):
     def get(self):
         self.write("test")
 
+# @find_modules
 def main():
     _settings = {
             "debug": settings.debug,
@@ -22,6 +24,11 @@ def main():
     for item in urls.urls:
         print("{} {}".format(item[0], item[1]))
     print('\nserver at 8888 port\n')
+
+    import sys
+    print(sys.path)
+    from modules.lcd_erp import main
+    print(main)
 
     app = tornado.web.Application(urls.urls, **_settings)
     app.listen(8888)

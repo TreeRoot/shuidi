@@ -1,1 +1,1 @@
-from framework.base import urls
+from ..framework.base import urls
