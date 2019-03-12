@@ -23,8 +23,8 @@ class url_perfix:
         else:
             self._url = 'api'+ '/' + prefix
 
-    def perfix(self, func):
-        @wraps(func):
+    def perfix(self, cls):
+        @wraps(cls):
         def inner(*args, **kwargs):
             self.make_url()
         return inner

@@ -25,11 +25,6 @@ def main():
         print("{} {}".format(item[0], item[1]))
     print('\nserver at 8888 port\n')
 
-    import sys
-    print(sys.path)
-    from modules.lcd_erp import main
-    print(main)
-
     app = tornado.web.Application(urls.urls, **_settings)
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()
