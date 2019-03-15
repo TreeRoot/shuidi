@@ -3,6 +3,7 @@ import copy
 from bson import ObjectId
 
 import flow
+import flow_instance
 from framework.data import flow_db
 
 
@@ -10,24 +11,33 @@ class data_provider:
     """
         流程数据配置， 增删改查
     """
-    db = fdb
+    db = flow_db
     _process_steps = False
 
     def __init__(self):
-        self.__cache__ = {}
+        self.cache = {}
 
     def get(self, _id=None):
         if _id is None:
             return None
 
+        obj = None
+        obj = self.cache.get(_id, None)
+        if obj:
+            return obj
+
         obj = self._get_origin(_id)
         if not obj:
+            # raise Exception('no data find for id:{}'.format(_id))
             return None
 
         if not isinstance(obj, base_provider):
             obj = self.construct(self)
-            if slef._process_steps:
+            if self._process_links:
+                self._process_link(self)
 
+        if obj:
+            self.cache.update({obj._id:obj})
         return obj
 
     def _get_origin(self):
@@ -53,11 +63,10 @@ class data_provider:
             if self._process_steps:
                 self._process(obj)
 
+        self.cache.update({obj._id:obj})
         return obj
 
-    def save(self, obj, cache=False):
-        # TODO 
-        # cache
+    def save(self, obj, cache=True):
         if not hasattr(obj, _id):
             # raise Exception('obj has no _id')
             obj._id = ObjectId()
@@ -67,11 +76,12 @@ class data_provider:
         obj_load = obj.load()
         table.replace_one({'_id': obj['_id']}, obj_load, upsert=True)
 
+        # 同时更新
         if cache:
-            pass
+            self.cache.update({obj._id: obj})
 
     def construct(self, obj):
-        raise Exception('subclass has no construct method')
+        raise Exception('baseclass has no construct method')
 
     def _process_link(self, cur):
         """
@@ -113,8 +123,10 @@ class data_provider:
                 if not isinstance(n, (str, unicode, ObjectId)):
                     node = n
                 else:
-                    j = self._get_origin(str(n))
-                    node = self.construct(j)
+                    node = self.cache.get(n, Nonf)
+                    if not node:
+                        j = self._get_origin(str(n))
+                        node = self.construct(j)
 
                 if not node:
                     continue
@@ -150,14 +162,14 @@ class step_provider(data_provider):
     # 实例化时实例化所有相关步骤
     _prev = 'prev_steps'
     _next = 'next_steps'
-    _process_steps = True
+    _process_links = True
     _table_name = 'step'
 
     def construct(self, obj):
         if not obj:
             return None
 
-        obj['flow'] = flow.get(obj['flow'])
+        obj['flow'] = flowd.get(obj['flow'])
         obj['rule'] = flow.flow_rule(**obj['rule'])
         return flow.step(**obj)
 
@@ -180,29 +192,75 @@ class stepins_provider(data_provider):
         if not obj:
             return None
 
-        obj['task'] = task.get(obj['task'])
-        obj['step'] = step.get(obj['step'])
+        obj['task'] = taskd.get(obj['task'])
+        obj['step'] = stepd.get(obj['step'])
         obj['rule'] = flow.rule(**obj['rule'])
+
+        res = flow_instance.stepins(**obj)
+        return res
 
 class task_provider(data_provider):
     _table_name = 'task'
+
     def save(self, obj):
         cobj = copy.deepcopy(obj)
         if isinstance(cobj.owner, dict):
             cobj.owner = cobj.owner['_id']
 
         super().save(cobj)
-
         state = obj.state
         while state:
             stated.save(state)
             state = state.next
 
-class state_provider(data_provider):
-    _table_name = 'state'
-    def save(self, obj):
-        super().save(obj)
+    def construct(self, obj=None):
+        if not obj:
+            return None
 
+        obj['flow'] = flowd.get(obj['flow'])
+        obj['first'] = stated.get(obj['first'])
+
+        state = obj['first']
+        self.cache.update({state._id: state})
+
+        # 初始化状态链, 由first单向构建, 并加入cache
+        while state and state.next:
+            if not isinstance(state.next, flow.state):
+                ns = stated._get_origin(state.next)
+                ns = stated.construct(ns)
+                if ns:
+                    self.cache.update({ns._id: ns})
+                ns.prev = state
+                state = ns
+
+        obj['cur'] = stated.get(obj['cur'])
+        obj['prev'] = stated.get(obj['prev'])
+        obj['next'] = stated.get(obj['next'])
+
+        res = flow_instance.task(**obj)
+        return res
+
+class state_provider(data_provider):
+    _prev = 'prev'
+    _next = 'next'
+    _process_links = True
+    _table_name = 'state'
+
+    def construct(self, obj):
+        """
+            状态链初始化，暂时交由task初始化， 本身不提供初始化；
+            后续可能更改
+        """
+        if not obj:
+            return None
+
+        obj['task'] = taskd.get(obj['task'])
+        obj['step'] = stepinsd.get(obj['step'])
+        obj['prev'] = stated.get(obj['prev'])
+        obj['next'] = stated.get(obj['next'])
+
+        res = flow_instance.state(**obj)
+        return res
 
 flowd = flow_provider()
 stepd = step_provider()

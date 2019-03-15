@@ -63,8 +63,8 @@ class step(base_provider):
         arguments:
             _id: 标识符
             name: 步骤名
-            prev_step: 上一些步骤
-            next_step: 下一些步骤
+            prev_step: 上一些步骤 []
+            next_step: 下一些步骤 []
             create_time: 创建时间
             flow: 步骤所属流程
             rule: 该步骤的配置规则
