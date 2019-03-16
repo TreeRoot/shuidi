@@ -62,30 +62,62 @@ class task(base_provider):
                 'start_time': datetime.datetime.utcnow(),
             })
 
-        self.state = news
+        self.cur = news
         self.first = news
 
     def move(self, stepins):
         """
             将任务从当前步骤移动到下个合法步骤，暂不支持回退
+            暂时只考虑简单情况，单线性移动到下一个合法步骤，
+            不会查询状态链，后续实现
         """
         if not self._begin:
             # raise Exception("task is unstart!")
             self._begin = True
 
-        # 第一版只考虑最简单的单一情况
-        # 查找next_step, 暂时进行中的任务不支持后退
+        if not self._is_next_step(stepins):
+            raise Exception('next_step not in valid next steps')
+
+        # 任务当前状态设置done， 表示完成
+        self.cur.done()
+        self._move(stepins)
+
+        return self
+
+    def _move(self, stepins):
+        """
+            创建新的状态, 更改当前状态信息
+        """
+        prev = self.cur
+        news = state(**{
+                '_id': ObjectId(),
+                'task': self,
+                'step': stepins,
+                'done': False,
+                'prev': prev,
+                'next': None,
+                'confirm_user': user._id,
+                'start_time': datetime.datetime.utcnow(),
+            })
+
+        self.cur = news
+        self.prev = prev
 
     def _is_next_step(self, stepins):
-        cur = self.cur.step.step
+        nsteps = slef.cur.step.step.next_steps
         ns = stepins.step
-        def valid_step(cur, ns):
-            if not cur or not ns:
+
+        def valid_step(ns, nsteps):
+            if len(nsteps) == []:
                 return False
 
-            nsteps = cur.next_steps
-            while len(nsteps) != 0:
+            if ns not in nsteps:
+                for n in nsteps:
+                    valid_step(ns, n.step.next_steps)
+            else:
+                return True
 
+        return valid_step(ns, nsteps)
 
 class state:
     """
@@ -106,8 +138,15 @@ class state:
         self.done = done
         self.prev = prev
         self.next = next
-        self.confirm_user = confirm_user
         self.freeze = freeze
+        self.confirm_user = confirm_user
+
+    def done(self, user):
+        """
+            暂时简单的返回True，后续实现其他条件判断
+        """
+        self.done = True
+        self.confirm_user = user._id
 
 class stepins(base_provider):
     """
