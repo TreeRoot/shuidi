@@ -22,7 +22,7 @@ class data_provider:
             return None
 
         obj = None
-        obj = self.cache.get(_id, None)
+        obj = self.cache.get(str(_id), None)
         if obj:
             return obj
 
@@ -208,7 +208,7 @@ class task_provider(data_provider):
             cobj.owner = cobj.owner['_id']
 
         super().save(cobj)
-        state = obj.state
+        state = obj.cur
         while state:
             stated.save(state)
             state = state.next

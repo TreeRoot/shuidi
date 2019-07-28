@@ -48,7 +48,7 @@ class flow(base_provider):
             owner: 流程创建者
             identity: 流程其他标识（后续实现）
     """
-    def __init__(self, _id=None, name=None, first_step=None, obj=None, create_time=None, owner=None, identity=None):
+    def __init__(self, _id=None, name=None, step=None, obj=None, create_time=None, owner=None, identity=None):
         self._id = _id
         self.name = name
         self.step = step
@@ -96,6 +96,13 @@ class step(base_provider):
 
                 }
         return super().load()
+
+    def add_next(self, n):
+        self.next_step.append(n)
+        n.add_prev(self)
+
+    def add_prev(self, p):
+        self.prev_step.append(p)
 
 class flow_rule(base_provider):
     """

@@ -2,19 +2,19 @@
 import datetime
 from bson import ObjectId
 
-import fdata_provider as fdp
+import flow_dataprovider as fdp
 from flow import base_provider
 
 
 class task(base_provider):
     def __init__(self, _id=None, name=None, flow=None, create_time=None, end_time=None, cur=None, prev=None, next=None,
-            extra=None, user=None, cur_step=None):
+            extra=None, user=None, cur_step=None, freeze=False):
         """
             任务， 流程实际执行对象
             arguments:
                 _id : 标识符
                 _begin: 任务是否开始（后续实现其他功能，暂时没用上）
-                user: 任务创建者
+                owner: 任务创建者
                 done: 任务完成与否， 整个流程的结束， 通常无法对已完成的任务进行任何操作
                 name: 任务名称
                 flow: 任务所属流程
@@ -25,23 +25,25 @@ class task(base_provider):
                 first: 任务第一个状态
                 prev: 任务上一个状态(如果有)
                 next: 任务下一个状态(如果有)
+                freeze: 整个任务结束True
         """
 
         self._begin = False
         self.done = False
-        self._user = user
+        self.end_time = end_time
+        self.owner = owner
 
         self._id = _id
         self.name = name
         self.flow = flow
         self.create_time = create_time
-        self.end_time = end_time
         self.extra = extra
         self.cur_step = cur_step
         self.cur = cur
         self.first = first
         self.prev = prev
         self.next = next
+        self.freeze = freeze
 
     def begin(self, user):
         if not self._begin:
@@ -65,7 +67,7 @@ class task(base_provider):
         self.cur = news
         self.first = news
 
-    def move(self, stepins):
+    def move(self, stepins=None, user=None):
         """
             将任务从当前步骤移动到下个合法步骤，暂不支持回退
             暂时只考虑简单情况，单线性移动到下一个合法步骤，
@@ -75,16 +77,28 @@ class task(base_provider):
             # raise Exception("task is unstart!")
             self._begin = True
 
-        if not self._is_next_step(stepins):
-            raise Exception('next_step not in valid next steps')
+        if not user:
+            raise Exception('user is none')
 
-        # 任务当前状态设置done， 表示完成
-        self.cur.done()
-        self._move(stepins)
+        # 如果任务已处于最有一个步骤， 直接将状态设置为done， 结束
+        cur_step = stepins.step
+        if cur_step.next_step == []:
+            self.cur.done(user)
+            self.end_time = datetime.datetime.utcnow()
+            self.freeze = True
 
+        else:
+            if not self._is_next_step(stepins):
+                raise Exception('next_step not in valid next steps')
+
+            # 任务当前状态设置done， 表示完成
+            self.cur.done(user)
+            self._move(stepins, user)
+
+        fdp.taskd.save(self)
         return self
 
-    def _move(self, stepins):
+    def _move(self, stepins, user):
         """
             创建新的状态, 更改当前状态信息
         """
@@ -118,6 +132,21 @@ class task(base_provider):
                 return True
 
         return valid_step(ns, nsteps)
+
+    def is_done(self):
+        """
+            检查整个任务是否完成， 检查整个状态链是否done
+        """
+        state = self.first
+        done = True
+        while state:
+            if state.done:
+                state = state.next
+            else:
+                done = False
+                break
+
+        return True
 
 class state:
     """
